@@ -94,6 +94,11 @@ class PointCloudLocalization {
   void PublishPose(const geometry_utils::Transform3& pose,
                    const ros::Publisher& pub) const;
 
+  // Publish incremental and integrated pose estimates with covariance.
+  void PublishPose(const geometry_utils::Transform3& pose,
+                   const Eigen::Matrix<float, 6, 6>& cov_mat,
+                   const ros::Publisher& pub);
+
   // The node's name.
   std::string name_;
 
