@@ -326,7 +326,7 @@ void PointCloudLocalization::PublishPoints(const PointCloud& points,
 }
 
 
-void PointCloudOdometry::PublishPose(const gu::Transform3& pose,
+void PointCloudLocalization::PublishPose(const gu::Transform3& pose,
                                      const Eigen::Matrix<float, 6, 6>& cov_mat,
                                      const ros::Publisher& pub) {
   // Check for subscribers before doing any work.
