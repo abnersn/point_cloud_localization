@@ -38,6 +38,7 @@
 #include <geometry_utils/GeometryUtilsROS.h>
 #include <parameter_utils/ParameterUtils.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 
 #include <pcl/registration/gicp.h>
@@ -155,9 +156,9 @@ bool PointCloudLocalization::RegisterCallbacks(const ros::NodeHandle& n) {
       nl.advertise<PointCloud>("localization_reference_points", 10, false);
   aligned_pub_ =
       nl.advertise<PointCloud>("localization_aligned_points", 10, false);
-  incremental_estimate_pub_ = nl.advertise<geometry_msgs::PoseStamped>(
+  incremental_estimate_pub_ = nl.advertise<geometry_msgs::PoseWithCovarianceStamped>(
       "localization_incremental_estimate", 10, false);
-  integrated_estimate_pub_ = nl.advertise<geometry_msgs::PoseStamped>(
+  integrated_estimate_pub_ = nl.advertise<geometry_msgs::PoseWithCovarianceStamped>(
       "localization_integrated_estimate", 10, false);
 
   return true;
