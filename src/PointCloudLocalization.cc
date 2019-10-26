@@ -54,6 +54,51 @@ using pcl::transformPointCloud;
 PointCloudLocalization::PointCloudLocalization() {}
 PointCloudLocalization::~PointCloudLocalization() {}
 
+
+/**
+ * Extracted from http://docs.ros.org/jade/api/rtabmap/html/namespacertabmap_1_1util3d.html#a0b03945dc22c26f899979c8e296820f4
+ */
+void computeVarianceAndCorrespondences(
+  const pcl::PointCloud<pcl::PointXYZ>::ConstPtr & cloudA,
+  const pcl::PointCloud<pcl::PointXYZ>::ConstPtr & cloudB,
+  double maxCorrespondenceDistance,
+  double & variance,
+  int & correspondencesOut)
+{
+	variance = 1;
+	correspondencesOut = 0;
+	pcl::registration::CorrespondenceEstimation<pcl::PointXYZ, pcl::PointXYZ>::Ptr est;
+	est.reset(new pcl::registration::CorrespondenceEstimation<pcl::PointXYZ, pcl::PointXYZ>);
+  
+  if (cloudA->size() > cloudB->size()) {
+    est->setInputTarget(cloudA);
+    est->setInputSource(cloudB);
+  } else {
+    est->setInputTarget(cloudB);
+    est->setInputSource(cloudA);
+  }
+	
+  pcl::Correspondences correspondences;
+	est->determineCorrespondences(correspondences, maxCorrespondenceDistance);
+
+	if(correspondences.size()>=3)
+	{
+		std::vector<double> distances(correspondences.size());
+		for(unsigned int i=0; i<correspondences.size(); ++i)
+		{
+			distances[i] = correspondences[i].distance;
+		}
+
+		//variance
+		std::sort(distances.begin (), distances.end ());
+		double median_error_sqr = distances[distances.size () >> 1];
+		variance = (2.1981 * median_error_sqr);
+	}
+
+	correspondencesOut = (int)correspondences.size();
+}
+
+
 bool PointCloudLocalization::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "PointCloudLocalization");
 
@@ -220,6 +265,11 @@ bool PointCloudLocalization::MeasurementUpdate(const PointCloud::Ptr& query,
 
   // Retrieve transformation and estimate and update.
   const Eigen::Matrix4f T = icp.getFinalTransformation();
+  double variance;
+  int correspondencesOut;
+  computeVarianceAndCorrespondences(query_, reference_, 0.05, variance, correspondencesOut);
+  Eigen::Matrix<float, 6, 6> cov_mat = Eigen::Matrix<float, 6, 6>::Identity(6, 6) * variance;
+
   pcl::transformPointCloud(*query, *aligned_query, T);
 
   gu::Transform3 pose_update;
@@ -244,8 +294,8 @@ bool PointCloudLocalization::MeasurementUpdate(const PointCloud::Ptr& query,
       gu::PoseUpdate(integrated_estimate_, incremental_estimate_);
 
   // Convert pose estimates to ROS format and publish.
-  PublishPose(incremental_estimate_, incremental_estimate_pub_);
-  PublishPose(integrated_estimate_, integrated_estimate_pub_);
+  PublishPose(incremental_estimate_, cov_mat, incremental_estimate_pub_);
+  PublishPose(integrated_estimate_, cov_mat, integrated_estimate_pub_);
 
   // Publish point clouds for visualization.
   PublishPoints(*query, query_pub_);
@@ -273,6 +323,23 @@ void PointCloudLocalization::PublishPoints(const PointCloud& points,
     pub.publish(out);
   }
 }
+
+
+void PointCloudOdometry::PublishPose(const gu::Transform3& pose,
+                                     const Eigen::Matrix<float, 6, 6>& cov_mat,
+                                     const ros::Publisher& pub) {
+  // Check for subscribers before doing any work.
+  if (pub.getNumSubscribers() == 0)
+    return;
+
+  // Convert from gu::Transform3 to ROS's PoseStamped type and publish.
+  geometry_msgs::PoseWithCovarianceStamped ros_pose;
+  ros_pose.header.frame_id = fixed_frame_id_;
+  ros_pose.header.stamp = stamp_;
+  ros_pose.pose = gr::ToRosPoseWithCovariance(pose, cov_mat);
+  pub.publish(ros_pose);
+}
+
 
 void PointCloudLocalization::PublishPose(const gu::Transform3& pose,
                                          const ros::Publisher& pub) const {
