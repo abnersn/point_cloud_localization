@@ -268,7 +268,7 @@ bool PointCloudLocalization::MeasurementUpdate(const PointCloud::Ptr& query,
   const Eigen::Matrix4f T = icp.getFinalTransformation();
   double variance;
   int correspondencesOut;
-  computeVarianceAndCorrespondences(query_, reference_, 0.05, variance, correspondencesOut);
+  computeVarianceAndCorrespondences(query, reference, 0.05, variance, correspondencesOut);
   Eigen::Matrix<float, 6, 6> cov_mat = Eigen::Matrix<float, 6, 6>::Identity(6, 6) * variance;
 
   pcl::transformPointCloud(*query, *aligned_query, T);
